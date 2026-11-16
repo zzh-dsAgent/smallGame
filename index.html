@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101418" />
+    <title>推箱子 · 码头夜班</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23101418'/%3E%3Crect x='7' y='8' width='18' height='16' rx='2' fill='%23d08945'/%3E%3Cpath d='M7 14h18M16 8v16' stroke='%236e3c1c' stroke-width='2'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <p class="eyebrow">码头夜班</p>
+        <h1>推箱子</h1>
+        <p class="lede">把木箱推进白色标记。箱子只能向前推，不能拉；推错了就撤销。</p>
+      </header>
+
+      <section class="frame" aria-label="游戏">
+        <span class="rivet a"></span>
+        <span class="rivet b"></span>
+        <span class="rivet c"></span>
+        <span class="rivet d"></span>
+        <div class="hud">
+          <div>
+            <p class="level-kicker" id="level-kicker">第 1 关</p>
+            <h2 id="level-name">卸一箱</h2>
+          </div>
+          <dl class="stats">
+            <div><dt>步数</dt><dd id="moves">0</dd></div>
+            <div><dt>推箱</dt><dd id="pushes">0</dd></div>
+            <div><dt>参考</dt><dd id="par">—</dd></div>
+            <div><dt>最佳</dt><dd id="best">—</dd></div>
+          </dl>
+        </div>
+        <p class="tip" id="tip"></p>
+        <p class="toast" id="toast" role="status"></p>
+        <div class="board-wrap">
+          <div class="board" id="board-shell">
+            <canvas id="board" width="480" height="320" aria-label="仓库平面图"></canvas>
+            <div class="banner" id="banner" hidden role="status">
+              <div class="banner-card">
+                <p class="banner-kicker" id="banner-kicker">本关完成</p>
+                <h3 id="banner-title">箱子都归位了</h3>
+                <p id="banner-stats"></p>
+                <button type="button" id="banner-next">下一关</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="controls">
+        <div class="actions">
+          <button type="button" id="undo">撤销</button>
+          <button type="button" id="restart">重开</button>
+          <button type="button" id="hint">提示</button>
+          <button type="button" id="sound" aria-pressed="false">声音</button>
+          <button type="button" id="prev">上一关</button>
+          <button type="button" id="next">下一关</button>
+        </div>
+        <div class="pad" id="pad">
+          <button type="button" data-dir="up" aria-label="向上">↑</button>
+          <button type="button" data-dir="left" aria-label="向左">←</button>
+          <button type="button" data-dir="down" aria-label="向下">↓</button>
+          <button type="button" data-dir="right" aria-label="向右">→</button>
+        </div>
+      </div>
+
+      <nav class="levels" id="levels" aria-label="选择关卡"></nav>
+      <p class="help"><kbd>↑↓←→</kbd> 或 <kbd>WASD</kbd> 移动，<kbd>Z</kbd> 撤销，<kbd>R</kbd> 重开，<kbd>H</kbd> 提示。点空地走过去，点箱子会推一下。</p>
+    </main>
+    <script src="js/levels.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>
