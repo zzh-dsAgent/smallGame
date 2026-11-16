@@ -9,6 +9,7 @@ function load(file) {
 
 load("js/levels.js");
 load("js/engine.js");
+load("js/store.js");
 
 const S = globalThis.DockSokoban;
 let failed = 0;
@@ -88,6 +89,72 @@ function ruleTests() {
   assert(walkedState.state.player.x === 3 && walkedState.state.player.y === 1, "绕路应到达目标格");
 }
 
+function storeTests() {
+  const count = S.LEVELS.length;
+  const blank = S.sanitizeStore(null, count);
+  assert(blank.level === 0, "空存档应回到第一关");
+  assert(Object.keys(blank.cleared).length === 0, "空存档应没有通关记录");
+  assert(Object.keys(blank.best).length === 0, "空存档应没有最佳成绩");
+  assert(blank.muted === false, "空存档默认打开声音");
+
+  [undefined, 42, "旧格式", [], true, { version: 2 }, { version: 0 }, { version: "1" }].forEach(
+    (raw, index) => {
+      const clean = S.sanitizeStore(raw, count);
+      assert(
+        clean.level === 0 &&
+          Object.keys(clean.cleared).length === 0 &&
+          Object.keys(clean.best).length === 0 &&
+          clean.muted === false,
+        "无效存档 #" + index + " 应整体回退"
+      );
+    }
+  );
+
+  const clean = S.sanitizeStore(
+    {
+      version: S.STORE_VERSION,
+      level: 5,
+      cleared: { 0: true, 5: true, 16: true, "-1": true, abc: true, 1: false },
+      best: {
+        0: { moves: 12, pushes: 4 },
+        1: { moves: -1, pushes: 0 },
+        2: { moves: 3.5, pushes: 2 },
+        3: { moves: 4, pushes: "2" },
+        4: { moves: 4 },
+        5: { moves: 10, pushes: 3 },
+        16: { moves: 1, pushes: 1 },
+        7: null,
+      },
+      muted: true,
+    },
+    count
+  );
+  assert(clean.level === 5, "有效关卡应保留");
+  assert(clean.cleared[0] === true && clean.cleared[5] === true, "范围内的通关记录应保留");
+  assert(Object.keys(clean.cleared).length === 2, "越界或非 true 的通关记录应丢弃");
+  assert(clean.best[0].moves === 12 && clean.best[0].pushes === 4, "完整最佳成绩应保留");
+  assert(clean.best[5].moves === 10 && clean.best[5].pushes === 3, "另一条最佳成绩应保留");
+  assert(Object.keys(clean.best).length === 2, "结构异常的最佳成绩应丢弃");
+  assert(clean.muted === true, "布尔静音状态应保留");
+
+  assert(S.sanitizeStore({ level: 99 }, count).level === 0, "越界关卡应回到第一关");
+  assert(S.sanitizeStore({ level: 1.5 }, count).level === 0, "小数关卡应回到第一关");
+  assert(S.sanitizeStore({ muted: "yes" }, count).muted === false, "非布尔静音状态应回退");
+  assert(S.sanitizeStore({ cleared: [true] }, count).cleared[0] === undefined, "数组形式的通关记录无效");
+  assert(S.sanitizeStore({ best: 3 }, count).best[0] === undefined, "数字形式的最佳成绩无效");
+
+  const legacy = S.sanitizeStore({ level: 3, best: { 3: { moves: 8, pushes: 2 } } }, count);
+  assert(legacy.level === 3 && legacy.best[3].moves === 8, "旧版无 version 的存档仍应可用");
+
+  const polluted = S.sanitizeStore(
+    JSON.parse('{"cleared":{"__proto__":true},"best":{"__proto__":{"moves":1,"pushes":1}}}'),
+    count
+  );
+  assert(!Object.prototype.hasOwnProperty.call(polluted.cleared, "__proto__"), "存档键不能污染通关记录");
+  assert(Object.prototype.moves === undefined, "校验存档不能污染原型");
+  assert(Object.keys(polluted.cleared).length === 0, "非法存档键应全部丢弃");
+}
+
 function levelTests() {
   S.LEVELS.forEach((level, index) => {
     let start;
@@ -150,6 +217,7 @@ function levelTests() {
 }
 
 ruleTests();
+storeTests();
 levelTests();
 
 if (failed) {

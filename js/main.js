@@ -16,7 +16,7 @@
     S: "down",
     D: "right",
   };
-  const STORE_KEY = "dock-sokoban-v1";
+  const STORE_KEY = S.STORE_KEY;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const canvas = document.getElementById("board");
@@ -49,7 +49,7 @@
     pad: document.getElementById("pad"),
   };
 
-  let index = clamp(saved.level || 0, 0, LEVELS.length - 1);
+  let index = saved.level;
   let cleared = saved.cleared || {};
   let best = saved.best || {};
   let state = null;
@@ -66,6 +66,7 @@
   let particles = [];
   let toastToken = 0;
   let cellSize = 48;
+  let gesture = null;
 
   buildLevelButtons();
   startLevel();
@@ -125,16 +126,25 @@
   });
 
   canvas.addEventListener("pointerdown", (event) => {
-    canvas.setPointerCapture(event.pointerId);
-    canvas.dataset.px = String(event.clientX);
-    canvas.dataset.py = String(event.clientY);
-    canvas.dataset.pid = String(event.pointerId);
+    // 只跟踪主指针：第二根手指不会打断正在进行的点击或滑动。
+    if (!event.isPrimary) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    if (canvas.setPointerCapture) {
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch (err) {
+        /* 合成事件或已失效的指针可能无法捕获，手势仍然按坐标处理。 */
+      }
+    }
   });
   canvas.addEventListener("pointerup", (event) => {
-    if (canvas.dataset.pid !== String(event.pointerId)) return;
-    const dx = event.clientX - Number(canvas.dataset.px);
-    const dy = event.clientY - Number(canvas.dataset.py);
-    if (Math.hypot(dx, dy) >= 28) {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const start = gesture;
+    gesture = null;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.hypot(dx, dy) >= swipeThreshold()) {
       if (Math.abs(dx) > Math.abs(dy)) enqueueDir(dx > 0 ? "right" : "left");
       else enqueueDir(dy > 0 ? "down" : "up");
       return;
@@ -143,6 +153,12 @@
     if (!cell) return;
     const plan = S.planClick(state, cell.x, cell.y);
     if (plan && plan.length) enqueuePlan(plan);
+  });
+  canvas.addEventListener("pointercancel", (event) => {
+    if (gesture && event.pointerId === gesture.id) gesture = null;
+  });
+  canvas.addEventListener("lostpointercapture", (event) => {
+    if (gesture && event.pointerId === gesture.id) gesture = null;
   });
   canvas.addEventListener("pointermove", (event) => {
     hover = cellFromEvent(event);
@@ -153,7 +169,8 @@
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
   if (window.ResizeObserver) new ResizeObserver(fit).observe(wrap);
-  else window.addEventListener("resize", fit);
+  window.addEventListener("resize", fit);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", fit);
 
   function startLevel() {
     state = S.loadLevel(LEVELS[index]);
@@ -229,7 +246,7 @@
         won = true;
         inputQueue.length = 0;
       }
-      renderHud();
+      renderStats();
       return;
     }
   }
@@ -247,7 +264,7 @@
     winNoted = false;
     particles = [];
     hideBanner();
-    renderHud();
+    renderStats();
   }
 
   function showHint() {
@@ -363,19 +380,27 @@
   }
 
   function renderHud() {
+    renderLevelInfo();
+    renderStats();
+  }
+
+  function renderLevelInfo() {
     const level = LEVELS[index];
     els.kicker.textContent = "第 " + (index + 1) + " / " + LEVELS.length + " 关";
     els.name.textContent = level.name;
-    els.moves.textContent = String(moveCount);
-    els.pushes.textContent = String(pushCount);
     els.par.textContent = level.par ? String(level.par) : "—";
-    els.best.textContent = best[index] ? String(best[index].moves) : "—";
     els.tip.textContent = level.tip || "";
-    els.undo.disabled = history.length === 0;
     els.prev.disabled = index === 0;
     els.next.disabled = index === LEVELS.length - 1;
     document.title = level.name + " · 推箱子";
     refreshLevelButtons();
+  }
+
+  function renderStats() {
+    els.moves.textContent = String(moveCount);
+    els.pushes.textContent = String(pushCount);
+    els.best.textContent = best[index] ? String(best[index].moves) : "—";
+    els.undo.disabled = history.length === 0;
   }
 
   function buildLevelButtons() {
@@ -417,6 +442,10 @@
     const y = Math.floor(((event.clientY - rect.top) / rect.height) * state.height);
     if (x < 0 || y < 0 || x >= state.width || y >= state.height) return null;
     return { x, y };
+  }
+
+  function swipeThreshold() {
+    return Math.max(20, cellSize * 0.6);
   }
 
   function spawnParticles(source) {
@@ -471,7 +500,7 @@
     try {
       localStorage.setItem(
         STORE_KEY,
-        JSON.stringify({ level: index, cleared, best, muted: audio.muted })
+        JSON.stringify({ version: S.STORE_VERSION, level: index, cleared, best, muted: audio.muted })
       );
     } catch (err) {
       /* 隐私模式里写不进本地记录，游戏本身继续。 */
@@ -479,18 +508,16 @@
   }
 
   function loadStore() {
+    let raw = null;
     try {
-      return JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {};
+      raw = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
     } catch (err) {
-      return {};
+      raw = null;
     }
+    return S.sanitizeStore(raw, LEVELS.length);
   }
 
   function lerp(a, b, t) {
     return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-  }
-
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
   }
 })();
