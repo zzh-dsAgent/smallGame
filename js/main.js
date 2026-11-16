@@ -67,11 +67,12 @@
   let toastToken = 0;
   let cellSize = 48;
   let gesture = null;
+  let frameId = null;
 
   buildLevelButtons();
   startLevel();
   syncSoundButton();
-  window.requestAnimationFrame(frame);
+  requestFrame();
 
   els.undo.addEventListener("click", undo);
   els.restart.addEventListener("click", restart);
@@ -162,9 +163,11 @@
   });
   canvas.addEventListener("pointermove", (event) => {
     hover = cellFromEvent(event);
+    requestFrame();
   });
   canvas.addEventListener("pointerleave", () => {
     hover = null;
+    requestFrame();
   });
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
@@ -188,6 +191,7 @@
     renderHud();
     fit();
     persist();
+    requestFrame();
   }
 
   function restart() {
@@ -206,13 +210,16 @@
     hintMark = null;
     inputQueue.push(dir);
     pump();
+    requestFrame();
   }
 
   function enqueuePlan(dirs) {
-    if (won || active || inputQueue.length) return;
+    if (won || !dirs || !dirs.length) return;
+    // 新的点击路线取代尚未执行的路线，避免旧路线把玩家带到意外位置。
     hintMark = null;
-    inputQueue.push.apply(inputQueue, dirs);
+    inputQueue = dirs.slice();
     pump();
+    requestFrame();
   }
 
   function pump() {
@@ -265,6 +272,7 @@
     particles = [];
     hideBanner();
     renderStats();
+    requestFrame();
   }
 
   function showHint() {
@@ -276,6 +284,7 @@
       setHeld(dir, true);
       window.setTimeout(() => setHeld(dir, false), 650);
       toast("下一步：向" + DIR_LABEL[dir]);
+      requestFrame();
       return;
     }
     if (result.status === "stuck") toast("这个局面推死了，撤销几步再试");
@@ -283,6 +292,7 @@
   }
 
   function frame(now) {
+    frameId = null;
     advance(now);
     if (won && !active && !winNoted) celebrate();
     particles = particles
@@ -313,7 +323,11 @@
       shake: now < shakeUntil ? Math.sin((shakeUntil - now) * 0.08) * 3 : 0,
       particles,
     });
-    window.requestAnimationFrame(frame);
+    if (active || particles.length || now < shakeUntil || (hintMark && now < hintMark.until)) requestFrame();
+  }
+
+  function requestFrame() {
+    if (frameId == null) frameId = window.requestAnimationFrame(frame);
   }
 
   function advance(now) {
@@ -433,6 +447,7 @@
     cellSize = Math.max(22, Math.min(size, 76));
     if (cellSize * state.width > maxW) cellSize = Math.max(8, Math.floor(maxW / state.width));
     renderer.setSize(cellSize * state.width, cellSize * state.height);
+    requestFrame();
   }
 
   function cellFromEvent(event) {
