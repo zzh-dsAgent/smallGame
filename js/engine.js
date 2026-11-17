@@ -26,14 +26,18 @@
     const goals = new Set();
     const boxes = [];
     let player = null;
+    let playerCount = 0;
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const cell = rows[y][x];
         if (cell === "#") walls.add(key(x, y));
-        else if (cell === "@") player = { x, y };
-        else if (cell === "+") {
+        else if (cell === "@") {
           player = { x, y };
+          playerCount += 1;
+        } else if (cell === "+") {
+          player = { x, y };
+          playerCount += 1;
           goals.add(key(x, y));
         } else if (cell === "$") boxes.push({ x, y });
         else if (cell === "*") {
@@ -46,7 +50,7 @@
       }
     }
 
-    if (!player) throw new Error("缺少工人：" + (level.name || ""));
+    if (playerCount !== 1) throw new Error("工人数量必须为一个：" + (level.name || ""));
     if (!boxes.length) throw new Error("缺少箱子：" + (level.name || ""));
     if (boxes.length !== goals.size) {
       throw new Error("箱子和目标数量不一致：" + (level.name || ""));

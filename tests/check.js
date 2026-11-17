@@ -89,6 +89,25 @@ function ruleTests() {
   assert(walkedState.state.player.x === 3 && walkedState.state.player.y === 1, "绕路应到达目标格");
 }
 
+function malformedLevelTests() {
+  [
+    { name: "非矩形关卡", rows: ["####", "#@ #", "#$ .#", "####"] },
+    { name: "未知格子", rows: ["#####", "#@x.#", "#$  #", "#####"] },
+    { name: "缺少工人", rows: ["#####", "#$ .#", "#####"] },
+    { name: "重复工人", rows: ["######", "#@$.@#", "######"] },
+    { name: "缺少箱子", rows: ["#####", "#@ .#", "#####"] },
+    { name: "箱子目标数量不一致", rows: ["#####", "#@$.#", "# $ #", "#####"] },
+  ].forEach((level) => {
+    let rejected = false;
+    try {
+      S.loadLevel(level);
+    } catch (error) {
+      rejected = true;
+    }
+    assert(rejected, level.name + " 应拒绝无效数据");
+  });
+}
+
 function storeTests() {
   const count = S.LEVELS.length;
   const blank = S.sanitizeStore(null, count);
@@ -217,6 +236,7 @@ function levelTests() {
 }
 
 ruleTests();
+malformedLevelTests();
 storeTests();
 levelTests();
 
