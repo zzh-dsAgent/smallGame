@@ -13,7 +13,11 @@
           if (!AudioCtx) return null;
           ctx = new AudioCtx();
         }
-        if (ctx.state === "suspended") ctx.resume();
+        if (ctx.state === "suspended") {
+          // 恢复音频上下文会返回 Promise；浏览器拒绝时静默降级为无音效。
+          const resumed = ctx.resume();
+          if (resumed && typeof resumed.catch === "function") resumed.catch(() => {});
+        }
         return ctx;
       } catch (err) {
         return null;
